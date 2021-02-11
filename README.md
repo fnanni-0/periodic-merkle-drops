@@ -1,1 +1,3 @@
 # periodic-merkle-drops
+
+This contract is a combination of Uniswap's [MerkleDistributor](https://github.com/Uniswap/merkle-distributor/blob/c3255bfa2b684594ecd562cacd7664b0f18330bf/contracts/MerkleDistributor.sol), Balancer's [MerkleRedeem](https://github.com/balancer-labs/erc20-redeemable/blob/13d478a043ec7bfce7abefe708d027dfe3e2ea84/merkle/contracts/MerkleRedeem.sol) and OpenZeppelin's [MerkleProof library](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/ee6348a7a0b08f82344f2b61e903788aa9dcf36c/contracts/cryptography/MerkleProof.sol). The idea was to implement a contract that allows periodic merkle drops in the most efficient way possible.
