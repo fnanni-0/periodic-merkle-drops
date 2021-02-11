@@ -14,14 +14,16 @@ contract PeriodicMerkleDrops is Ownable {
     }
 
     IERC20 public immutable token;
+    uint256 public immutable expirationTime; // Once expirationTime goes by, the owner of the contract can recover the funds.
     // Recorded periods
     mapping(uint256 => bytes32) public merkleRoots;
     mapping(uint256 => mapping(uint256 => uint256)) public claimedBitMap;
 
     event Claimed(uint256 indexed period, uint256 index, address indexed account, uint256 amount);
 
-    constructor(address _token) {
+    constructor(address _token, uint256 _expirationTime) {
         token = IERC20(_token);
+        expirationTime = _expirationTime;
     }
 
     function claimPeriod(
@@ -84,7 +86,28 @@ contract PeriodicMerkleDrops is Ownable {
         require(IERC20(token).transfer(_account, totalBalance), 'Transfer failed.');
     }
 
-    function claimStatus(uint256[] calldata _indices, uint256 _begin, uint256 _end)
+    function seedAllocations(
+        uint256 _period,
+        bytes32 _merkleRoot,
+        uint256 _totalAllocation,
+        address _contributor
+    )
+        external
+        onlyOwner
+    {
+        require(merkleRoots[_period] == bytes32(0), "Cannot overwrite merkle root.");
+        merkleRoots[_period] = _merkleRoot;
+
+        require(token.transferFrom(_contributor, address(this), _totalAllocation), "Transfer failed.");
+    }
+
+    function recoverFunds(address payable receiver) external onlyOwner {
+        require(block.timestamp > expirationTime);
+        uint256 remainingFunds = token.balanceOf(address(this));
+        require(token.transfer(receiver, remainingFunds), "Transfer failed.");
+    }
+
+    function getClaimStatus(uint256[] calldata _indices, uint256 _begin, uint256 _end)
         external
         view
         returns (bool[] memory)
@@ -112,21 +135,6 @@ contract PeriodicMerkleDrops is Ownable {
         return arr;
     }
 
-    function seedAllocations(
-        uint256 _period,
-        bytes32 _merkleRoot,
-        uint256 _totalAllocation,
-        address _contributor
-    )
-        external
-        onlyOwner
-    {
-        require(merkleRoots[_period] == bytes32(0), "Cannot overwrite merkle root.");
-        merkleRoots[_period] = _merkleRoot;
-
-        require(token.transferFrom(_contributor, address(this), _totalAllocation), "Transfer failed.");
-    }
-
     function isClaimed(uint256 _index, uint256 _period) public view returns (bool) {
         uint256 claimedWordIndex = _index / 256;
         uint256 claimedBitIndex = _index % 256;
@@ -135,6 +143,7 @@ contract PeriodicMerkleDrops is Ownable {
         return claimedWord & mask == mask;
     }
 
+    // See https://github.com/OpenZeppelin/openzeppelin-contracts/blob/ee6348a7a0b08f82344f2b61e903788aa9dcf36c/contracts/cryptography/MerkleProof.sol
     function verifyProof(bytes32[] calldata proof, bytes32 root, bytes32 leaf) internal pure returns (bool) {
         bytes32 computedHash = leaf;
 
